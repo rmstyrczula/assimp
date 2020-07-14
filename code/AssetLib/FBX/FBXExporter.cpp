@@ -549,14 +549,29 @@ size_t count_nodes(const aiNode* n) {
     return count;
 }
 
+bool is_phong_mat(const aiMaterial* mat)
+{
+    float shininess = 0;
+    mat->Get(AI_MATKEY_SHININESS, shininess);
+    if (shininess > 0) {
+        return true;
+    }
+
+    int shadingMode = 0;
+    mat->Get(AI_MATKEY_SHADING_MODEL, shadingMode);
+    if (shadingMode == aiShadingMode_Phong) {
+        return true;
+    }
+
+    return false;
+}
+
 bool has_phong_mat(const aiScene* scene)
 {
     // just search for any material with a shininess exponent
     for (size_t i = 0; i < scene->mNumMaterials; ++i) {
         aiMaterial* mat = scene->mMaterials[i];
-        float shininess = 0;
-        mat->Get(AI_MATKEY_SHININESS, shininess);
-        if (shininess > 0) {
+        if (is_phong_mat(mat)) {
             return true;
         }
     }
@@ -1387,8 +1402,7 @@ void FBXExporter::WriteObjects ()
 
         n.AddChild("Version", int32_t(102));
         f = 0;
-        m->Get(AI_MATKEY_SHININESS, f);
-        bool phong = (f > 0);
+        bool phong = is_phong_mat(m);
         if (phong) {
             n.AddChild("ShadingModel", "phong");
         } else {
@@ -1444,7 +1458,7 @@ void FBXExporter::WriteObjects ()
                 p.AddP70colorA("SpecularColor", c.r, c.g, c.b);
             }
             if (m->Get(AI_MATKEY_SHININESS_STRENGTH, f) == aiReturn_SUCCESS) {
-                p.AddP70numberA("ShininessFactor", f);
+                p.AddP70numberA("SpecularFactor", f);
             }
             if (m->Get(AI_MATKEY_SHININESS, f) == aiReturn_SUCCESS) {
                 p.AddP70numberA("ShininessExponent", f);
@@ -1481,6 +1495,9 @@ void FBXExporter::WriteObjects ()
         }
         m->Get(AI_MATKEY_OPACITY, f);
         p.AddP70double("Opacity", f);
+        if (m->Get(AI_MATKEY_TRANSPARENCYFACTOR, f) == aiReturn_SUCCESS) {
+            p.AddP70double("TransparencyFactor", f);
+        }
         if (phong) {
             // specular color is multiplied by shininess_strength
             c.r = 0.2f; c.g = 0.2f; c.b = 0.2f;
